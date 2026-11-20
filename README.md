@@ -95,7 +95,8 @@ External APIs / Feeds
 ## Sample Analytical Queries
 
 ### 1. High-Risk Open Tickets Needing Triage
-```sql
+sql
+
 select
     ticket_id,
     ticket_number,
@@ -110,7 +111,8 @@ where escalation_risk_tier = 'High Escalation Risk'
 order by ticket_age_days desc, comments_count desc;
 
 ###2. Daily Backlog Share & Billing Index Momentum
-```sql
+sql
+
 select
     activity_date,
     total_tickets_updated,
