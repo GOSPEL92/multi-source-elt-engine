@@ -33,7 +33,7 @@ External APIs / Feeds
                  │
                  ▼
   [Dagster Orchestration] ──► Asset lineage, materializations, data tests & hourly schedule
-
+```
 ---
 ### Pipeline Lineage & Materialized Assets
 
@@ -110,7 +110,7 @@ from ANALYTICS.mart_ticket_escalation_risk
 where escalation_risk_tier = 'High Escalation Risk'
 order by ticket_age_days desc, comments_count desc;
 
-###2. Daily Backlog Share & Billing Index Momentum
+### 2. Daily Backlog Share & Billing Index Momentum
 sql
 
 select
