@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: stg_support_tickets
+    description: "Cleaned staging view for support tickets"
+    columns:
+      - name: ticket_id
+        tests:
+          - unique
+          - not_null
+      - name: interaction_volume_category
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'No Interactions'
+                - 'Low Engagement'
+                - 'Medium Engagement'
+                - 'High Engagement'

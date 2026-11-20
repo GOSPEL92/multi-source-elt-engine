@@ -1,0 +1,15 @@
+﻿venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.secrets.toml
+.dlt/
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+.dagster/
+*.secrets.toml
+.dagster_home/
+.tmp_dagster_home_*/
+logs/

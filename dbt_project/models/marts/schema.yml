@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: fct_daily_saas_operations
+    description: "Incremental daily mart joining SaaS support ticket metrics with financial billing index rates."
+    columns:
+      - name: activity_date
+        tests:
+          - unique
+          - not_null
+      - name: total_tickets_updated
+        tests:
+          - not_null
+
+  - name: mart_ticket_escalation_risk
+    description: >
+      Ticket-level operational and escalation risk mart combining cleaned support ticket
+      attributes, engagement volume tiers, ticket aging, and SCD Type 2 snapshot history.
+    columns:
+      - name: ticket_id
+        description: Unique ticket identifier from stg_support_tickets.
+        data_tests:
+          - not_null
+          - unique
+      - name: escalation_risk_tier
+        description: Triage tier separating high-risk open tickets, watchlisted open tickets, and closed tickets.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - High Escalation Risk
+                  - Watchlist - Open
+                  - Resolved / Closed
+
+  - name: mart_daily_operations_market_trends
+    description: >
+      Daily executive mart built on fct_daily_saas_operations adding open ticket share,
+      interactions per ticket, day-over-day billing index changes, and load status.
+    columns:
+      - name: activity_date
+        description: Calendar date of operational and market index activity.
+        data_tests:
+          - not_null
+          - unique
+      - name: daily_operational_load_status
+        description: Daily workload classification for support and finance monitoring.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Elevated Operational Load
+                  - Normal Operational Load                
