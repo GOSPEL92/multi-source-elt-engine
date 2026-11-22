@@ -13,84 +13,57 @@ Remote SaaS operations and finance teams need visibility into two connected risk
 ---
 
 ## Architecture & Pipeline Flow
-
 ```text
-External APIs / Feeds
+External APIs / Feeds & CRM Account Feed
         │
         ▼
-  [dlt Ingestion]  ──►  Snowflake (RAW_SAAS_DATA: raw_support_tickets, raw_market_rates)
+  [dlt Ingestion]  ──►  Snowflake (RAW_SAAS_DATA: raw_support_tickets, raw_market_rates, raw_saas_accounts)
         │
-        ▼
-  [dbt Staging]    ──►  stg_support_tickets, stg_market_rates (deduplication, cleaning, engagement tiers)
+        ├──► [dbt Staging]    ──►  stg_support_tickets, stg_market_rates, stg_saas_accounts
+        │       │
+        │       ├──► [dbt Snapshot]        ──► snap_support_tickets, snap_saas_accounts (SNAPSHOTS schema, SCD Type 2)
+        │       └──► [dbt Incremental Fact] ──► fct_daily_saas_operations (incremental merge, 3-day lookback)
+        │                │
+        │                ▼
+        │      [dbt Business Marts]
+        │        ├── mart_ticket_escalation_risk (ticket aging, snapshot history, account context & triage)
+        │        └── mart_daily_operations_market_trends (daily backlog ratio, effort & DoD index shifts)
         │
-        ├──► [dbt Snapshot]        ──► snap_support_tickets (SNAPSHOTS schema, timestamp SCD Type 2)
-        └──► [dbt Incremental Fact] ──► fct_daily_saas_operations (incremental merge, 3-day lookback)
+        └──► [dbt Customer Dimension] ──► dim_customers (plan tier, MRR, renewal date, snapshot stats & ticket risk rollups)
                  │
                  ▼
-       [dbt Business Marts]
-         ├── mart_ticket_escalation_risk (ticket-level aging, snapshot history & escalation triage)
-         └── mart_daily_operations_market_trends (daily backlog ratio, effort & DoD index shifts)
-                 │
-                 ▼
-  [Dagster Orchestration] ──► Asset lineage, materializations, data tests & hourly schedule
+  [Dagster Orchestration] ──► Asset lineage, materializations, asset checks, dbt tests & hourly schedule
 ```
----
-### Pipeline Lineage & Materialized Assets
-
-
-![Dagster Materialized Assets](docs/images/dagster-assets.png)
-
-![Dagster Asset Lineage](docs/images/dagster-lineage.png)
-
-
----
 
 ## Key Models & Data Marts
-
-* **Raw Ingestion (`raw_support_tickets`, `raw_market_rates`)**
-  * **Strategy:** `dlt` ingestion assets (`ingestion` group)
-  * **Grain:** Raw source records
-  * **Purpose:** Ingests support ticket and market rate feeds into Snowflake
-
-* **Staging (`stg_support_tickets`, `stg_market_rates`)**
-  * **Strategy:** Staging views/models
-  * **Grain:** Ticket / market asset record
-  * **Purpose:** Deduplicates records, standardizes types/fields, and categorizes engagement
-
-* **Snapshot (`snap_support_tickets`)**
-  * **Strategy:** dbt Snapshot (`strategy='timestamp'`, `updated_at='updated_at'`)
-  * **Grain:** `ticket_id` + validity window
-  * **Purpose:** Captures historical changes to ticket status, comments, and timestamps
-
-* **Daily Fact (`fct_daily_saas_operations`)**
-  * **Strategy:** Incremental (`merge`, `unique_key='activity_date'`, 3-day lookback)
-  * **Grain:** `activity_date`
-  * **Purpose:** Joins daily support ticket and interaction metrics with daily market index metrics
-
-* **Escalation Risk Mart (`mart_ticket_escalation_risk`)**
-  * **Strategy:** Table
-  * **Grain:** `ticket_id`
-  * **Purpose:** Computes ticket aging (`ticket_age_days`), snapshot history, and `escalation_risk_tier`
-
-* **Daily Trends Mart (`mart_daily_operations_market_trends`)**
-  * **Strategy:** Table
-  * **Grain:** `activity_date`
-  * **Purpose:** Adds `open_ticket_ratio`, `interactions_per_ticket`, DoD billing index % change, and load status
----
-
-## Key Engineering & Modeling Decisions
-
-* **Incremental `merge` with a 3-day lookback (`fct_daily_saas_operations`):** Re-evaluates the last 3 days of `activity_date` on incremental runs to absorb late-arriving ticket updates or market rate revisions without full-table rebuild costs.
-
-* **Timestamp-based SCD Type 2 snapshots (`snap_support_tickets`):** Preserves historical ticket states (`dbt_valid_from`, `dbt_valid_to`) so ticket-level marts can inspect lifecycle history rather than overwriting state.
-
-* **Complementary mart grains:** Pairs a **ticket-level triage mart** (`mart_ticket_escalation_risk`) for support leads with a **daily trend mart** (`mart_daily_operations_market_trends`) for operational and billing/market monitoring.
-
-* **Automated data quality tests:** Enforces `not_null`, `unique`, and `accepted_values` tests across staging, fact, and mart layers (`dbt build`).
-
-* **Dagster orchestration:** Exposes ingestion, snapshots, dbt models, and tests as unified Dagster assets with an active schedule.
-
----
+- **Raw Ingestion (`raw_support_tickets`, `raw_market_rates`, `raw_saas_accounts`)**
+  - *Strategy:* dlt ingestion multi-asset (`ingestion` group)
+  - *Grain:* Raw source records (tickets, market index coins, and SaaS customer accounts)
+  - *Purpose:* Ingests support tickets, market index rates, and customer account/MRR records into Snowflake
+- **Staging (`stg_support_tickets`, `stg_market_rates`, `stg_saas_accounts`)**
+  - *Strategy:* Staging views/models
+  - *Grain:* Ticket / market asset / customer account record
+  - *Purpose:* Deduplicates records, standardizes data types and fields, maps `account_id` on tickets, and categorizes engagement
+- **Snapshots (`snap_support_tickets`, `snap_saas_accounts`)**
+  - *Strategy:* dbt Snapshot (`strategy='timestamp'`, `updated_at='updated_at'`)
+  - *Grain:* Entity ID + validity window
+  - *Purpose:* Tracks historical changes in ticket status/engagement and SaaS account plan/MRR over time
+- **Daily Fact (`fct_daily_saas_operations`)**
+  - *Strategy:* Incremental (`merge`, `unique_key='activity_date'`, 3-day lookback)
+  - *Grain:* `activity_date`
+  - *Purpose:* Combines daily support ticket and interaction counts with daily market index metrics
+- **Customer Dimension (`dim_customers`)**
+  - *Strategy:* Table
+  - *Grain:* `account_id`
+  - *Purpose:* Combines customer tier, MRR, renewal date, account snapshot history, ticket/escalation rollups, and `customer_health_status`
+- **Escalation Risk Mart (`mart_ticket_escalation_risk`)**
+  - *Strategy:* Table
+  - *Grain:* `ticket_id`
+  - *Purpose:* Computes ticket age, snapshot history, customer account context, and `escalation_risk_tier`
+- **Daily Trends Mart (`mart_daily_operations_market_trends`)**
+  - *Strategy:* Table
+  - *Grain:* `activity_date`
+  - *Purpose:* Adds `open_ticket_ratio`, `interactions_per_ticket`, DoD billing index % change, and load status
 
 ## Sample Analytical Queries
 
@@ -98,6 +71,10 @@ External APIs / Feeds
 ```sql
 select
     ticket_id,
+    account_id,
+    company_name,
+    plan_tier,
+    mrr_usd,
     ticket_number,
     ticket_status,
     interaction_volume_category,
@@ -107,9 +84,9 @@ select
     escalation_risk_tier
 from ANALYTICS.mart_ticket_escalation_risk
 where escalation_risk_tier = 'High Escalation Risk'
-order by ticket_age_days desc, comments_count desc;
-
+order by mrr_usd desc nulls last, ticket_age_days desc, comments_count desc;
 ```
+
 ### 2. Daily Backlog Share & Billing Index Momentum
 ```sql
 select
@@ -125,8 +102,53 @@ select
 from ANALYTICS.mart_daily_operations_market_trends
 order by activity_date desc;
 ```
----
 
+### 3. 360-Degree Customer MRR-at-Risk
+```sql
+with ticket_metrics as (
+    select
+        account_id,
+        count(*) as total_tickets_logged,
+        count_if(escalation_risk_tier = 'High Escalation Risk') as high_risk_tickets,
+        count_if(escalation_risk_tier = 'Watchlist - Open') as watchlist_open_tickets,
+        round(avg(ticket_age_days), 1) as avg_ticket_age_days,
+        max(ticket_age_days) as max_ticket_age_days
+    from ANALYTICS.mart_ticket_escalation_risk
+    where account_id is not null
+    group by account_id
+)
+select
+    c.account_id,
+    c.company_name,
+    c.plan_tier,
+    c.mrr_usd,
+    c.contract_renewal_date,
+    c.customer_health_status,
+    c.account_snapshot_versions,
+    c.open_tickets,
+    c.high_escalation_risk_tickets,
+    c.total_ticket_comments,
+    coalesce(tm.watchlist_open_tickets, 0) as watchlist_open_tickets,
+    coalesce(tm.avg_ticket_age_days, 0) as avg_ticket_age_days,
+    coalesce(tm.max_ticket_age_days, 0) as max_ticket_age_days,
+    case
+        when c.high_escalation_risk_tickets > 0 then c.mrr_usd
+        else 0
+    end as mrr_at_risk_usd
+from ANALYTICS.dim_customers c
+left join ticket_metrics tm
+    on c.account_id = tm.account_id
+order by mrr_at_risk_usd desc, c.mrr_usd desc, c.high_escalation_risk_tickets desc;
+```
+---
+### Pipeline Lineage & Materialized Assets
+
+
+![Dagster Materialized Assets](docs/images/dagster-assets.png)
+
+![Dagster Asset Lineage](docs/images/dagster-lineage.png)
+
+---
 ## How to Run Locally
 
 1. Run dbt models, snapshots, and data tests:

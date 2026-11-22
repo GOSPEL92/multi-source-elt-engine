@@ -83,7 +83,7 @@ def _check_raw_table(table_name: str) -> AssetCheckResult:
     )
 
 
-# 1. Upstream Multi-Asset (1 dlt run -> 2 distinct Snowflake raw tables)
+# 1. Upstream Multi-Asset (1 dlt run -> 3 distinct Snowflake raw tables)
 @multi_asset(
     compute_kind="dlt",
     outs={
@@ -95,6 +95,10 @@ def _check_raw_table(table_name: str) -> AssetCheckResult:
             key=["raw_saas_data", "raw_support_tickets"],
             group_name="ingestion",
         ),
+        "raw_saas_accounts": AssetOut(
+            key=["raw_saas_data", "raw_saas_accounts"],
+            group_name="ingestion",
+        ),
     },
 )
 def dlt_multi_source_saas_ingestion(context: AssetExecutionContext):
@@ -103,6 +107,7 @@ def dlt_multi_source_saas_ingestion(context: AssetExecutionContext):
     context.log.info(f"dlt load complete: {load_info}")
     yield MaterializeResult(asset_key=["raw_saas_data", "raw_market_rates"])
     yield MaterializeResult(asset_key=["raw_saas_data", "raw_support_tickets"])
+    yield MaterializeResult(asset_key=["raw_saas_data", "raw_saas_accounts"])
 
 
 @asset_check(
@@ -129,6 +134,18 @@ def check_raw_support_tickets_rows(
     return _check_raw_table("RAW_SUPPORT_TICKETS")
 
 
+@asset_check(
+    asset=AssetKey(["raw_saas_data", "raw_saas_accounts"]),
+    description="Verify raw_saas_accounts contains rows in Snowflake",
+    blocking=True,
+)
+def check_raw_saas_accounts_rows(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
+    context.log.info("Checking row count for SAAS_ELT_DB.RAW_SAAS_DATA.RAW_SAAS_ACCOUNTS...")
+    return _check_raw_table("RAW_SAAS_ACCOUNTS")
+
+
 # 2. Downstream Transformation Assets (dbt staging, snapshots, marts, tests)
 @dbt_assets(manifest=dbt_project.manifest_path)
 def saas_dbt_assets(context: AssetExecutionContext, dbt: DbtCliResource):
@@ -148,7 +165,11 @@ hourly_elt_schedule = ScheduleDefinition(
 
 defs = Definitions(
     assets=[dlt_multi_source_saas_ingestion, saas_dbt_assets],
-    asset_checks=[check_raw_market_rates_rows, check_raw_support_tickets_rows],
+    asset_checks=[
+        check_raw_market_rates_rows,
+        check_raw_support_tickets_rows,
+        check_raw_saas_accounts_rows,
+    ],
     jobs=[full_elt_job],
     schedules=[hourly_elt_schedule],
     resources={
