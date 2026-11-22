@@ -17,3 +17,38 @@ models:
                 - 'Low Engagement'
                 - 'Medium Engagement'
                 - 'High Engagement'
+
+  - name: stg_market_rates
+    description: "Cleaned staging view for daily billing and financial market rates"
+    columns:
+      - name: asset_id
+        tests:
+          - not_null
+      - name: asset_symbol
+        tests:
+          - not_null
+      - name: price_usd
+        tests:
+          - not_null
+
+  - name: stg_saas_accounts
+    description: "Cleaned and deduplicated staging view for SaaS customer accounts and subscription tiers"
+    columns:
+      - name: account_id
+        tests:
+          - unique
+          - not_null
+      - name: company_name
+        tests:
+          - not_null
+      - name: plan_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - 'Enterprise'
+                - 'Growth'
+                - 'Starter'
+      - name: mrr_usd
+        tests:
+          - not_null

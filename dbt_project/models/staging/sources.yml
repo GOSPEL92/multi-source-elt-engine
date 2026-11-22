@@ -6,4 +6,5 @@ sources:
     schema: RAW_SAAS_DATA
     tables:
       - name: raw_market_rates
+      - name: raw_saas_accounts
       - name: raw_support_tickets
