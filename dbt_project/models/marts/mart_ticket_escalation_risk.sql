@@ -4,6 +4,16 @@ with tickets as (
     where ticket_id is not null
 ),
 
+accounts as (
+    select
+        account_id,
+        company_name,
+        plan_tier,
+        mrr_usd,
+        contract_renewal_date
+    from {{ ref('stg_saas_accounts') }}
+),
+
 snapshot_history as (
     select
         ticket_id,
@@ -19,6 +29,11 @@ snapshot_history as (
 enriched as (
     select
         t.ticket_id,
+        t.account_id,
+        a.company_name,
+        a.plan_tier,
+        a.mrr_usd,
+        a.contract_renewal_date,
         t.ticket_number,
         t.ticket_title,
         t.ticket_status,
@@ -73,6 +88,8 @@ enriched as (
 
         current_timestamp() as dbt_updated_at
     from tickets t
+    left join accounts a
+        on t.account_id = a.account_id
     left join snapshot_history s
         on t.ticket_id = s.ticket_id
 )
