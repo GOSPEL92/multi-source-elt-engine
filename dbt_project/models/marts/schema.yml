@@ -5,23 +5,58 @@ models:
     description: "Incremental daily mart joining SaaS support ticket metrics with financial billing index rates."
     columns:
       - name: activity_date
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: total_tickets_updated
-        tests:
+        data_tests:
+          - not_null
+
+  - name: dim_customers
+    description: >
+      Customer account dimension combining SaaS subscription tier, MRR, contract renewal date,
+      SCD Type 2 snapshot history, and aggregated support ticket escalation metrics.
+    columns:
+      - name: account_id
+        description: Unique SaaS customer account identifier from stg_saas_accounts.
+        data_tests:
+          - not_null
+          - unique
+      - name: plan_tier
+        description: Standardized subscription tier (Enterprise, Growth, Starter).
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - Enterprise
+                  - Growth
+                  - Starter
+      - name: mrr_usd
+        description: Monthly recurring revenue in USD.
+        data_tests:
           - not_null
 
   - name: mart_ticket_escalation_risk
     description: >
       Ticket-level operational and escalation risk mart combining cleaned support ticket
-      attributes, engagement volume tiers, ticket aging, and SCD Type 2 snapshot history.
+      attributes, SaaS customer account context, engagement volume tiers, ticket aging,
+      and SCD Type 2 snapshot history.
     columns:
       - name: ticket_id
         description: Unique ticket identifier from stg_support_tickets.
         data_tests:
           - not_null
           - unique
+      - name: account_id
+        description: Linked SaaS customer account identifier mapped to the support ticket.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: account_id
+              config:
+                where: "account_id is not null"
       - name: escalation_risk_tier
         description: Triage tier separating high-risk open tickets, watchlisted open tickets, and closed tickets.
         data_tests:
@@ -51,4 +86,4 @@ models:
               arguments:
                 values:
                   - Elevated Operational Load
-                  - Normal Operational Load                
+                  - Normal Operational Load

@@ -18,6 +18,7 @@ deduped as (
 transformed as (
     select
         id::varchar as ticket_id,
+        account_id::varchar as account_id,
         ticket_number::bigint as ticket_number,
         coalesce(nullif(trim(title::varchar), ''), 'Untitled Ticket') as ticket_title,
         coalesce(nullif(trim(state::varchar), ''), 'open') as ticket_status,
