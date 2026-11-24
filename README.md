@@ -156,11 +156,9 @@ order by mrr_at_risk_usd desc, c.mrr_usd desc, c.high_escalation_risk_tickets de
 
 * **Timestamp-based SCD Type 2 snapshots (`snap_support_tickets`):** Preserves historical ticket states (`dbt_valid_from`, `dbt_valid_to`) so ticket-level marts can inspect lifecycle history rather than overwriting state.
 
-* **Complementary mart grains:** Pairs a **ticket-level triage mart** (`mart_ticket_escalation_risk`) for support leads with a **daily trend mart** (`mart_daily_operations_market_trends`) for operational and billing/market monitoring.
-
-  * **Customer dimension + complementary mart grains:** Pairs dim_customers (account_id grain) and a ticket-level triage mart (mart_ticket_escalation_risk) with a daily trend mart (mart_daily_operations_market_trends) for account risk, ticket triage, and daily operational/market monitoring.
-
-* **Automated data quality tests:** Enforces `not_null`, `unique`, and `accepted_values` tests across staging, fact, and mart layers (`dbt build`).
+* **Customer dimension + complementary mart grains:** Pairs `dim_customers` (`account_id` grain) and a *ticket-level triage mart* (`mart_ticket_escalation_risk`) with a *daily trend mart* (`mart_daily_operations_market_trends`) for account risk, ticket triage, and daily operational/market monitoring.
+  
+* **Automated data quality tests:** Enforces `not_null`, `unique`, `accepted_values`, and `relationships` tests across staging, dimension, fact, and mart layers (`dbt build`).
 
 * **Dagster orchestration:** Exposes dlt ingestion outputs, snapshots, dbt models, asset checks, and tests as unified Dagster assets with an active hourly schedule.
 
