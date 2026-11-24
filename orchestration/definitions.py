@@ -1,6 +1,9 @@
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import snowflake.connector
+import yaml
 from dagster import (
     AssetCheckExecutionContext,
     AssetCheckResult,
@@ -16,8 +19,6 @@ from dagster import (
     multi_asset,
 )
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
-import snowflake.connector
-import yaml
 
 # Ensure project root is importable
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

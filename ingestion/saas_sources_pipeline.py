@@ -1,5 +1,6 @@
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import dlt
 import requests
 
@@ -75,7 +76,7 @@ def fetch_market_rates():
     response = requests.get(url, params=params, headers=headers, timeout=30)
     response.raise_for_status()
 
-    extracted_at = datetime.now(timezone.utc).isoformat()
+    extracted_at = datetime.now(UTC).isoformat()
     for record in response.json():
         record["_extracted_at"] = extracted_at
         yield record

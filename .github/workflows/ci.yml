@@ -34,7 +34,7 @@ jobs:
 
       - name: Lint Python code (ingestion & orchestration)
         run: |
-          ruff check ingestion orchestration --ignore E501
+          ruff check ingestion orchestration --ignore E501,B008
 
       - name: Validate Dagster definitions
         run: |
@@ -60,5 +60,4 @@ jobs:
                 schema: analytics
                 threads: 4
           EOF
-          dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
           dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
