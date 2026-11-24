@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python and dbt dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          elif [ -f pyproject.toml ]; then
+            pip install -e .
+          fi
+          pip install dagster dbt-core dbt-snowflake
+
+      - name: Validate Dagster definitions
+        run: |
+          python -c "from orchestration.definitions import defs; print('Assets:', len(defs.resolve_all_asset_specs()), 'Checks:', len(defs.resolve_asset_graph().get_all_asset_checks()))"
+
+      - name: Parse dbt project
+        env:
+          DBT_PROFILES_DIR: /tmp/dbt_ci_profiles
+        run: |
+          mkdir -p /tmp/dbt_ci_profiles
+          cat << 'EOF' > /tmp/dbt_ci_profiles/profiles.yml
+          multi_source_saas_dbt:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: dummy_account
+                user: dummy_user
+                password: dummy_password
+                role: dummy_role
+                warehouse: dummy_wh
+                database: dummy_db
+                schema: analytics
+                threads: 4
+          EOF
+          dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
