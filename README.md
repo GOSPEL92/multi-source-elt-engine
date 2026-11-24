@@ -1,5 +1,7 @@
 # Multi-Source SaaS Operations & Market Index ELT Engine
 
+[![CI](https://github.com/GOSPEL92/multi-source-elt-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/GOSPEL92/multi-source-elt-engine/actions/workflows/ci.yml)
+
 An end-to-end **Analytics Engineering & Data Orchestration** pipeline ingesting external SaaS support ticket and market index feeds via **dlt** into **Snowflake**, transforming and snapshotting data with **dbt**, and orchestrating scheduled runs and asset lineage in **Dagster**.
 
 ---
@@ -161,6 +163,25 @@ order by mrr_at_risk_usd desc, c.mrr_usd desc, c.high_escalation_risk_tickets de
 * **Automated data quality tests:** Enforces `not_null`, `unique`, `accepted_values`, and `relationships` tests across staging, dimension, fact, and mart layers (`dbt build`).
 
 * **Dagster orchestration:** Exposes dlt ingestion outputs, snapshots, dbt models, asset checks, and tests as unified Dagster assets with an active hourly schedule.
+
+---
+
+## Key Metric Definitions
+
+| Metric | Model | Business Definition |
+| --- | --- | --- |
+| `mrr_at_risk_usd` | `dim_customers` / Query #3 | Monthly recurring revenue (`mrr_usd`) exposed on accounts with at least one `High Escalation Risk` ticket (`0` otherwise). |
+| `escalation_risk_tier` | `mart_ticket_escalation_risk` | Triage classification (`High Escalation Risk`, `Watchlist - Open`, `Normal / Resolved`) derived from open status, ticket aging, and interaction volume. |
+| `customer_health_status` | `dim_customers` | Account health rollup combining open ticket load, high-escalation ticket count, and engagement intensity. |
+| `open_ticket_ratio` | `mart_daily_operations_market_trends` | Share of daily updated tickets remaining unresolved (`open_tickets_count / total_tickets_updated`). |
+| `billing_index_dod_pct_change` | `mart_daily_operations_market_trends` | Day-over-day percentage movement in `avg_billing_index_usd` compared against `prev_day_billing_index_usd`. |
+
+## Data Quality & Operational Runbook
+
+* **Ingestion Asset Checks (Dagster):** `check_raw_support_tickets_rows`, `check_raw_market_rates_rows`, and raw account row checks block downstream assumptions if Snowflake raw tables arrive empty.
+* **Schema & Integrity Tests (dbt):** Enforces `unique` and `not_null` on primary keys (`ticket_id`, `account_id`, `activity_date`), `accepted_values` on status/tier fields, and `relationships` between `stg_support_tickets.account_id` and `dim_customers.account_id`.
+* **Late-Arriving Data Handling:** `fct_daily_saas_operations` uses an incremental `merge` with a **3-day rolling lookback** so late ticket updates or market revisions self-heal on the next hourly run without full-table refreshes.
+* **Recovery Procedure:** If an upstream API feed fails temporarily, re-materialize the `ingestion` asset group in Dagster once the feed recovers; downstream snapshots, incremental facts, and marts will automatically catch up.
 
 ---
 ## How to Run Locally

@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Python and dbt dependencies
+      - name: Install Python, linting, and dbt dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then
@@ -30,7 +30,11 @@ jobs:
           elif [ -f pyproject.toml ]; then
             pip install -e .
           fi
-          pip install dagster dbt-core dbt-snowflake
+          pip install dagster dbt-core dbt-snowflake ruff
+
+      - name: Lint Python code (ingestion & orchestration)
+        run: |
+          ruff check ingestion orchestration --ignore E501
 
       - name: Validate Dagster definitions
         run: |
@@ -56,4 +60,5 @@ jobs:
                 schema: analytics
                 threads: 4
           EOF
+          dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
           dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
