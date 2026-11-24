@@ -30,7 +30,7 @@ jobs:
           elif [ -f pyproject.toml ]; then
             pip install -e .
           fi
-          pip install dagster dbt-core dbt-snowflake ruff
+          pip install dagster dagster-dbt dbt-core dbt-snowflake dlt ruff
 
       - name: Lint Python code (ingestion & orchestration)
         run: |
@@ -38,7 +38,7 @@ jobs:
 
       - name: Validate Dagster definitions
         run: |
-          python -c "from orchestration.definitions import defs; print('Assets:', len(defs.resolve_all_asset_specs()), 'Checks:', len(defs.resolve_asset_graph().get_all_asset_checks()))"
+          python -c "from orchestration.definitions import defs; graph = defs.resolve_asset_graph(); print('Assets:', len(defs.resolve_all_asset_specs()), 'Checks:', len(graph.asset_check_keys))"
 
       - name: Parse dbt project
         env:
