@@ -152,6 +152,11 @@ order by mrr_at_risk_usd desc, c.mrr_usd desc, c.high_escalation_risk_tickets de
 
 ---
 
+### Power BI Semantic Model
+![Power BI Model View](assets/powerbi-model-view.png)
+
+`DIM_CUSTOMERS` filters `MART_TICKET_ESCALATION_RISK` (`1` to `*`), while `MART_DAILY_OPERATIONS_MARKET_TRENDS` provides standalone daily operational and market trend metrics.
+---
 ## Key Engineering & Modeling Decisions
 
 * **Incremental `merge` with a 3-day lookback (`fct_daily_saas_operations`):** Re-evaluates the last 3 days of `activity_date` on incremental runs to absorb late-arriving ticket updates or market rate revisions without full-table rebuild costs.
