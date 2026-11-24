@@ -56,14 +56,14 @@ jobs:
           EOF
           cp /tmp/dbt_ci_profiles/profiles.yml ~/.dbt/profiles.yml
 
-      - name: Validate Dagster definitions
-        env:
-          DBT_PROFILES_DIR: /tmp/dbt_ci_profiles
-        run: |
-          python -c "from orchestration.definitions import defs; graph = defs.resolve_asset_graph(); print('Assets:', len(defs.resolve_all_asset_specs()), 'Checks:', len(graph.asset_check_keys))"
-
       - name: Parse dbt project
         env:
           DBT_PROFILES_DIR: /tmp/dbt_ci_profiles
         run: |
           dbt parse --project-dir dbt_project --profiles-dir /tmp/dbt_ci_profiles
+
+      - name: Validate Dagster definitions
+        env:
+          DBT_PROFILES_DIR: /tmp/dbt_ci_profiles
+        run: |
+          python -c "from orchestration.definitions import defs; graph = defs.resolve_asset_graph(); print('Assets:', len(defs.resolve_all_asset_specs()), 'Checks:', len(graph.asset_check_keys))"
