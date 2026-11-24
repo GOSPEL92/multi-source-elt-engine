@@ -6,10 +6,10 @@ An end-to-end **Analytics Engineering & Data Orchestration** pipeline ingesting 
 
 ## Business Problem
 
-Remote SaaS operations and finance teams need visibility into two connected risks:
+Remote SaaS operations, customer success, and finance teams need visibility into three connected areas:
 1. **Support backlog & escalation risk:** Which support tickets are stalling (`open` with high age or heavy customer interaction), how tickets change state over time, and where triage bottlenecks are forming.
-2. **Daily operational pressure vs. billing/market index shifts:** How daily ticket backlog and customer interaction intensity move alongside market/billing index rates (`avg_billing_index_usd` and `total_market_liquidity_usd`).
-
+2. **Customer revenue & renewal exposure (`dim_customers`):** Which accounts (`plan_tier`, `mrr_usd`, `contract_renewal_date`, and `customer_health_status`) face churn or revenue risk when paired with high-escalation-risk tickets (`mrr_at_risk_usd`).
+3. **Daily operational pressure vs. billing/market index shifts:** How daily ticket backlog and customer interaction intensity move alongside market/billing index rates (`avg_billing_index_usd` and `total_market_liquidity_usd`), orchestrated reliably end-to-end with asset lineage and data quality checks.
 ---
 
 ## Architecture & Pipeline Flow
@@ -147,6 +147,22 @@ order by mrr_at_risk_usd desc, c.mrr_usd desc, c.high_escalation_risk_tickets de
 ![Dagster Materialized Assets](docs/images/dagster-assets.png)
 
 ![Dagster Asset Lineage](docs/images/dagster-lineage.png)
+
+---
+
+## Key Engineering & Modeling Decisions
+
+* **Incremental `merge` with a 3-day lookback (`fct_daily_saas_operations`):** Re-evaluates the last 3 days of `activity_date` on incremental runs to absorb late-arriving ticket updates or market rate revisions without full-table rebuild costs.
+
+* **Timestamp-based SCD Type 2 snapshots (`snap_support_tickets`):** Preserves historical ticket states (`dbt_valid_from`, `dbt_valid_to`) so ticket-level marts can inspect lifecycle history rather than overwriting state.
+
+* **Complementary mart grains:** Pairs a **ticket-level triage mart** (`mart_ticket_escalation_risk`) for support leads with a **daily trend mart** (`mart_daily_operations_market_trends`) for operational and billing/market monitoring.
+
+  * **Customer dimension + complementary mart grains:** Pairs dim_customers (account_id grain) and a ticket-level triage mart (mart_ticket_escalation_risk) with a daily trend mart (mart_daily_operations_market_trends) for account risk, ticket triage, and daily operational/market monitoring.
+
+* **Automated data quality tests:** Enforces `not_null`, `unique`, and `accepted_values` tests across staging, fact, and mart layers (`dbt build`).
+
+* **Dagster orchestration:** Exposes dlt ingestion outputs, snapshots, dbt models, asset checks, and tests as unified Dagster assets with an active hourly schedule.
 
 ---
 ## How to Run Locally
